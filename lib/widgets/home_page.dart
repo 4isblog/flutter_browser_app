@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
-import '../services/api_service.dart';
 import 'navigation_grid.dart';
 
 class BrowserHomePage extends StatefulWidget {
@@ -20,33 +18,6 @@ class BrowserHomePage extends StatefulWidget {
 class _BrowserHomePageState extends State<BrowserHomePage> {
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _focusNode = FocusNode();
-  String? _logoUrl;
-  bool _logoLoading = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadLogo();
-  }
-
-  Future<void> _loadLogo() async {
-    try {
-      final logoConfig = await ApiService.getLogo();
-      if (mounted) {
-        setState(() {
-          _logoUrl = logoConfig?.imageUrl;
-          _logoLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Error loading logo: $e');
-      if (mounted) {
-        setState(() {
-          _logoLoading = false;
-        });
-      }
-    }
-  }
 
   @override
   void dispose() {
@@ -112,31 +83,10 @@ class _BrowserHomePageState extends State<BrowserHomePage> {
                   ),
                 
                 // Logo
-                SizedBox(
+                Image.asset(
+                  'assets/icon/icon.png',
                   width: 80,
                   height: 80,
-                  child: _logoLoading
-                      ? const Center(
-                          child: CircularProgressIndicator(),
-                        )
-                      : (_logoUrl != null && _logoUrl!.isNotEmpty
-                          ? CachedNetworkImage(
-                              imageUrl: _logoUrl!,
-                              fit: BoxFit.contain,
-                              placeholder: (context, url) => const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                              errorWidget: (context, url, error) => Image.asset(
-                                'assets/icon/icon.png',
-                                width: 80,
-                                height: 80,
-                              ),
-                            )
-                          : Image.asset(
-                              'assets/icon/icon.png',
-                              width: 80,
-                              height: 80,
-                            )),
                 ),
                 
                 const SizedBox(height: 40),

@@ -6,6 +6,7 @@ import FlutterMacOS
 import Foundation
 
 import dynamic_color
+import file_picker
 import flutter_inappwebview_macos
 import mobile_scanner
 import multi_window_macos
@@ -22,6 +23,7 @@ import window_manager_plus
 
 func RegisterGeneratedPlugins(registry: FlutterPluginRegistry) {
   DynamicColorPlugin.register(with: registry.registrar(forPlugin: "DynamicColorPlugin"))
+  FilePickerPlugin.register(with: registry.registrar(forPlugin: "FilePickerPlugin"))
   InAppWebViewFlutterPlugin.register(with: registry.registrar(forPlugin: "InAppWebViewFlutterPlugin"))
   MobileScannerPlugin.register(with: registry.registrar(forPlugin: "MobileScannerPlugin"))
   MultiWindowMacosPlugin.register(with: registry.registrar(forPlugin: "MultiWindowMacosPlugin"))

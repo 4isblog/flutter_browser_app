@@ -6,7 +6,11 @@ import 'package:flutter_browser/main.dart';
 import 'package:flutter_browser/models/browser_history.dart';
 import 'package:flutter_browser/models/user_agent_model.dart';
 import 'package:flutter_browser/models/webview_model.dart';
+import 'package:flutter_browser/services/ad_block_injector.dart';
+import 'package:flutter_browser/services/script_injection_service.dart';
+import 'package:flutter_browser/services/userscript_parser.dart';
 import 'package:flutter_browser/util.dart';
+import 'package:flutter_browser/utils/script_installer.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path_provider/path_provider.dart';
@@ -168,6 +172,9 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = widget.webViewModel.progress < 1.0 && !widget.webViewModel.loaded;
+    final isDarkMode = Theme.of(context).brightness == Brightness.dark;
+    
     return CallbackShortcuts(
         bindings: <ShortcutActivator, VoidCallback>{
           LogicalKeySet(LogicalKeyboardKey.meta, LogicalKeyboardKey.keyR): () {
@@ -177,9 +184,99 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
         child: Focus(
             autofocus: true,
             focusNode: _focusNode,
-            child: Container(
-              color: Colors.white,
-              child: _buildWebView(),
+            child: Stack(
+              children: [
+                Container(
+                  color: isDarkMode ? Colors.black : Colors.white,
+                  child: _buildWebView(),
+                ),
+                // 加载指示器覆盖层
+                if (isLoading)
+                  Container(
+                    color: isDarkMode ? Colors.black : Colors.white,
+                    child: Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // 加载动画
+                          SizedBox(
+                            width: 50,
+                            height: 50,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Theme.of(context).primaryColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 24),
+                          
+                          // 加载文本
+                          Text(
+                            '正在加载页面...',
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w500,
+                              color: isDarkMode ? Colors.grey[300] : Colors.grey[700],
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 12),
+                          
+                          // 显示 URL
+                          if (widget.webViewModel.url != null)
+                            Container(
+                              constraints: const BoxConstraints(maxWidth: 300),
+                              padding: const EdgeInsets.symmetric(horizontal: 32),
+                              child: Text(
+                                widget.webViewModel.url.toString(),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
+                                ),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          
+                          const SizedBox(height: 20),
+                          
+                          // 进度条
+                          Container(
+                            width: 200,
+                            height: 3,
+                            decoration: BoxDecoration(
+                              color: isDarkMode ? Colors.grey[800] : Colors.grey[200],
+                              borderRadius: BorderRadius.circular(2),
+                            ),
+                            child: FractionallySizedBox(
+                              alignment: Alignment.centerLeft,
+                              widthFactor: widget.webViewModel.progress,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).primaryColor,
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                            ),
+                          ),
+                          
+                          const SizedBox(height: 8),
+                          
+                          // 进度百分比
+                          Text(
+                            '${(widget.webViewModel.progress * 100).toInt()}%',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: isDarkMode ? Colors.grey[500] : Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
             )));
   }
 
@@ -199,6 +296,8 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
     initialSettings.useOnDownloadStart = true;
     initialSettings.useOnLoadResource = true;
     initialSettings.useShouldOverrideUrlLoading = true;
+    // 暂时禁用 shouldInterceptRequest，避免性能问题
+    // initialSettings.useShouldInterceptRequest = true; 
     initialSettings.javaScriptCanOpenWindowsAutomatically = true;
     
     // 视频播放关键配置
@@ -270,6 +369,23 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
         widget.webViewModel.setLoadedResources([]);
         widget.webViewModel.setJavaScriptConsoleResults([]);
 
+        // 检测用户脚本 URL
+        if (mounted && url.toString().isNotEmpty) {
+          final urlString = url.toString();
+          if (UserScriptParser.isUserScriptUrl(urlString)) {
+            // 显示安装提示
+            Future.delayed(const Duration(milliseconds: 500), () {
+              if (mounted) {
+                ScriptInstaller.showInstallPrompt(
+                  context,
+                  urlString,
+                  () {}, // onDismiss
+                );
+              }
+            });
+          }
+        }
+
         if (isCurrentTab(currentWebViewModel)) {
           currentWebViewModel.updateWithValue(widget.webViewModel);
         } else if (widget.webViewModel.needsToCompleteInitialLoad) {
@@ -318,6 +434,28 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
                       fav.width! > widget.webViewModel.favicon!.width!)) {
                 widget.webViewModel.favicon = fav;
               }
+            }
+          }
+        }
+
+        // 注入用户脚本
+        if (url != null && url.toString().isNotEmpty) {
+          try {
+            final scriptService = ScriptInjectionService();
+            await scriptService.injectScripts(controller, url.toString());
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error injecting user scripts: $e');
+            }
+          }
+          
+          // 注入广告拦截脚本（轻量级方案）
+          try {
+            final adBlockInjector = AdBlockInjector();
+            await adBlockInjector.injectBlockScript(controller);
+          } catch (e) {
+            if (kDebugMode) {
+              print('Error injecting ad block script: $e');
             }
           }
         }
@@ -442,6 +580,51 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
 
         return NavigationActionPolicy.ALLOW;
       },
+      // 暂时禁用 shouldInterceptRequest - 性能问题
+      // shouldInterceptRequest: (controller, request) async {
+      //   // 广告拦截 - 优化版本
+      //   try {
+      //     final url = request.url.toString();
+      //     
+      //     // 跳过主文档请求，避免白屏
+      //     if (request.isForMainFrame ?? false) {
+      //       return null;
+      //     }
+      //     
+      //     // 只拦截特定类型的资源
+      //     final urlLower = url.toLowerCase();
+      //     final shouldCheck = urlLower.contains('ad') || 
+      //                        urlLower.contains('banner') || 
+      //                        urlLower.contains('tracking') ||
+      //                        urlLower.contains('analytics') ||
+      //                        urlLower.contains('doubleclick') ||
+      //                        urlLower.contains('googlesyndication');
+      //     
+      //     if (!shouldCheck) {
+      //       return null; // 快速放行不太可能是广告的请求
+      //     }
+      //     
+      //     final adBlockService = AdBlockService();
+      //     final shouldBlock = await adBlockService.shouldBlockUrl(url);
+      //     
+      //     if (shouldBlock) {
+      //       if (kDebugMode) {
+      //         print('Blocked: $url');
+      //       }
+      //       // 返回空响应
+      //       return WebResourceResponse(
+      //         contentType: 'text/plain',
+      //         data: Uint8List(0),
+      //       );
+      //     }
+      //   } catch (e) {
+      //     if (kDebugMode) {
+      //       print('Error in ad blocking: $e');
+      //     }
+      //   }
+      //   
+      //   return null; // 允许请求
+      // },
       onDownloadStartRequest: (controller, url) async {
         String path = url.url.path;
         String fileName = path.substring(path.lastIndexOf('/') + 1);

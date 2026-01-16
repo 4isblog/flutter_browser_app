@@ -3,7 +3,9 @@ import 'package:flutter_browser/l10n/app_localizations.dart';
 import 'package:flutter_browser/models/browser_model.dart';
 import 'package:flutter_browser/models/user_agent_model.dart';
 import 'package:flutter_browser/models/window_model.dart';
+import 'package:flutter_browser/pages/ad_block_page.dart';
 import 'package:flutter_browser/pages/settings/user_agent_page.dart';
+import 'package:flutter_browser/pages/user_scripts_page.dart';
 import 'package:flutter_browser/util.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:provider/provider.dart';
@@ -85,6 +87,40 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
                   windowModel.saveInfo();
                 }
               });
+            },
+          ),
+
+          const Divider(),
+
+          // 广告拦截
+          ListTile(
+            leading: const Icon(Icons.block),
+            title: const Text('广告拦截'),
+            subtitle: const Text('订阅广告拦截规则'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AdBlockPage(),
+                ),
+              );
+            },
+          ),
+
+          // 用户脚本
+          ListTile(
+            leading: const Icon(Icons.extension),
+            title: const Text('用户脚本'),
+            subtitle: const Text('管理自定义 JavaScript 脚本'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const UserScriptsPage(),
+                ),
+              );
             },
           ),
 
