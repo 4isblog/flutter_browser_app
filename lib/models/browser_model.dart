@@ -16,26 +16,35 @@ import 'package:collection/collection.dart';
 
 class BrowserSettings {
   SearchEngineModel searchEngine;
+  SearchEngineModel? customSearchEngine; // 自定义搜索引擎
   bool homePageEnabled;
   String customUrlHomePage;
   bool debuggingEnabled;
   String startupBehavior; // 'home', 'restore', 'custom'
+  int userAgentIndex; // User-Agent 预设索引
+  String customUserAgent; // 自定义 User-Agent（当 userAgentIndex = 4 时使用）
 
   BrowserSettings({
     this.searchEngine = GoogleSearchEngine,
+    this.customSearchEngine,
     this.homePageEnabled = false,
     this.customUrlHomePage = "",
     this.debuggingEnabled = false,
     this.startupBehavior = 'home',
+    this.userAgentIndex = 1, // 默认使用 Chrome 移动端
+    this.customUserAgent = "",
   });
 
   BrowserSettings copy() {
     return BrowserSettings(
       searchEngine: searchEngine,
+      customSearchEngine: customSearchEngine,
       homePageEnabled: homePageEnabled,
       customUrlHomePage: customUrlHomePage,
       debuggingEnabled: debuggingEnabled,
       startupBehavior: startupBehavior,
+      userAgentIndex: userAgentIndex,
+      customUserAgent: customUserAgent,
     );
   }
 
@@ -43,10 +52,15 @@ class BrowserSettings {
     return map != null
         ? BrowserSettings(
             searchEngine: SearchEngines[map["searchEngineIndex"]],
+            customSearchEngine: map["customSearchEngine"] != null
+                ? SearchEngineModel.fromMap(map["customSearchEngine"])
+                : null,
             homePageEnabled: map["homePageEnabled"],
             customUrlHomePage: map["customUrlHomePage"],
             debuggingEnabled: map["debuggingEnabled"],
             startupBehavior: map["startupBehavior"] ?? 'home',
+            userAgentIndex: map["userAgentIndex"] ?? 1,
+            customUserAgent: map["customUserAgent"] ?? "",
           )
         : null;
   }
@@ -54,10 +68,13 @@ class BrowserSettings {
   Map<String, dynamic> toMap() {
     return {
       "searchEngineIndex": SearchEngines.indexOf(searchEngine),
+      "customSearchEngine": customSearchEngine?.toMap(),
       "homePageEnabled": homePageEnabled,
       "customUrlHomePage": customUrlHomePage,
       "debuggingEnabled": debuggingEnabled,
       "startupBehavior": startupBehavior,
+      "userAgentIndex": userAgentIndex,
+      "customUserAgent": customUserAgent,
     };
   }
 
@@ -204,6 +221,7 @@ class BrowserModel extends ChangeNotifier {
 
   void updateSettings(BrowserSettings settings) {
     _settings = settings;
+    save(); // 自动保存到数据库
     notifyListeners();
   }
 

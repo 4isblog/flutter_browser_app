@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_browser/database/history_database.dart';
 import 'package:flutter_browser/main.dart';
 import 'package:flutter_browser/models/browser_history.dart';
+import 'package:flutter_browser/models/user_agent_model.dart';
 import 'package:flutter_browser/models/webview_model.dart';
 import 'package:flutter_browser/util.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
@@ -199,10 +200,26 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
     initialSettings.useOnLoadResource = true;
     initialSettings.useShouldOverrideUrlLoading = true;
     initialSettings.javaScriptCanOpenWindowsAutomatically = true;
-    if (Util.isIOS() || Util.isAndroid()) {
-      initialSettings.userAgent =
-          "Mozilla/5.0 (Linux; Android 9; LG-H870 Build/PKQ1.190522.001) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/83.0.4103.106 Mobile Safari/537.36";
+    
+    // 视频播放关键配置
+    initialSettings.mediaPlaybackRequiresUserGesture = false; // 允许自动播放
+    initialSettings.allowsInlineMediaPlayback = true; // 允许内联播放
+    initialSettings.allowsPictureInPictureMediaPlayback = true; // 画中画
+    
+    // Android 视频播放优化
+    if (Util.isAndroid()) {
+      initialSettings.useHybridComposition = true; // Android 视频兼容性关键
+      initialSettings.hardwareAcceleration = true; // 硬件加速
     }
+    
+    // User-Agent 设置
+    if (Util.isIOS() || Util.isAndroid()) {
+      final userAgent = _getUserAgentFromSettings(settings);
+      if (userAgent.isNotEmpty) {
+        initialSettings.userAgent = userAgent;
+      }
+    }
+    
     initialSettings.transparentBackground = true;
 
     initialSettings.safeBrowsingEnabled = true;
@@ -409,14 +426,18 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
         if (url != null &&
             !["http", "https", "file", "chrome", "data", "javascript", "about"]
                 .contains(url.scheme)) {
-          if (await canLaunchUrl(url)) {
-            // Launch the App
-            await launchUrl(
-              url,
-            );
-            // and cancel the request
-            return NavigationActionPolicy.CANCEL;
+          // 尝试用外部应用打开自定义 scheme（如 bilibili://）
+          try {
+            if (await canLaunchUrl(url)) {
+              await launchUrl(url);
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('Cannot launch URL: $url, error: $e');
+            }
           }
+          // 无论是否成功，都取消 WebView 的导航，避免显示错误页
+          return NavigationActionPolicy.CANCEL;
         }
 
         return NavigationActionPolicy.ALLOW;
@@ -618,5 +639,17 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
 
   void onHideTab() async {
     pause();
+  }
+
+  String _getUserAgentFromSettings(BrowserSettings settings) {
+    if (settings.userAgentIndex >= 0 && settings.userAgentIndex < PresetUserAgents.length) {
+      final preset = PresetUserAgents[settings.userAgentIndex];
+      if (preset.value == 'custom') {
+        return settings.customUserAgent;
+      }
+      return preset.value;
+    }
+    // 默认返回 Chrome 移动端
+    return PresetUserAgents[1].value;
   }
 }

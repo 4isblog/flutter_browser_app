@@ -1,7 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_browser/models/browser_model.dart';
-import 'package:flutter_browser/models/search_engine_model.dart';
-import 'package:provider/provider.dart';
 
 class BrowserHomePage extends StatefulWidget {
   final Function(String) onUrlSubmit;
@@ -30,9 +27,6 @@ class _BrowserHomePageState extends State<BrowserHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final browserModel = Provider.of<BrowserModel>(context);
-    final settings = browserModel.getSettings();
-
     return Container(
       color: widget.isIncognito
           ? (Theme.of(context).brightness == Brightness.dark
@@ -81,16 +75,10 @@ class _BrowserHomePageState extends State<BrowserHomePage> {
                   ),
                 
                 // Logo
-                Container(
+                Image.asset(
+                  'assets/icon/icon.png',
                   width: 80,
                   height: 80,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    image: const DecorationImage(
-                      image: AssetImage('assets/icon/icon.png'),
-                      fit: BoxFit.cover,
-                    ),
-                  ),
                 ),
                 
                 const SizedBox(height: 40),
@@ -134,78 +122,10 @@ class _BrowserHomePageState extends State<BrowserHomePage> {
                     },
                   ),
                 ),
-                
-                const SizedBox(height: 24),
-                
-                // 搜索引擎选择器
-                _buildSearchEngineSelector(context, settings, browserModel),
               ],
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildSearchEngineSelector(
-    BuildContext context,
-    dynamic settings,
-    BrowserModel browserModel,
-  ) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: SearchEngines.map((engine) {
-          final isSelected = settings.searchEngine.name == engine.name;
-          return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: InkWell(
-              onTap: () {
-                settings.searchEngine = engine;
-                browserModel.updateSettings(settings);
-              },
-              borderRadius: BorderRadius.circular(20),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: isSelected
-                      ? Theme.of(context).primaryColor.withValues(alpha: 0.1)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isSelected
-                        ? Theme.of(context).primaryColor
-                        : Colors.transparent,
-                    width: 1.5,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (engine.assetIcon.isNotEmpty)
-                      Image.asset(
-                        engine.assetIcon,
-                        width: 16,
-                        height: 16,
-                      ),
-                    const SizedBox(width: 6),
-                    Text(
-                      engine.name,
-                      style: TextStyle(
-                        fontSize: 13,
-                        fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-                        color: isSelected
-                            ? Theme.of(context).primaryColor
-                            : Theme.of(context).textTheme.bodyMedium?.color,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        }).toList(),
       ),
     );
   }

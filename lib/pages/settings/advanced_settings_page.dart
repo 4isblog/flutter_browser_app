@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_browser/l10n/app_localizations.dart';
 import 'package:flutter_browser/models/browser_model.dart';
+import 'package:flutter_browser/models/user_agent_model.dart';
 import 'package:flutter_browser/models/window_model.dart';
+import 'package:flutter_browser/pages/settings/user_agent_page.dart';
 import 'package:flutter_browser/util.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:provider/provider.dart';
@@ -15,12 +16,15 @@ class AdvancedSettingsPage extends StatefulWidget {
 }
 
 class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
-  final TextEditingController _userAgentController = TextEditingController();
-
-  @override
-  void dispose() {
-    _userAgentController.dispose();
-    super.dispose();
+  String _getUserAgentDisplay(BrowserSettings settings) {
+    if (settings.userAgentIndex >= 0 && settings.userAgentIndex < PresetUserAgents.length) {
+      final preset = PresetUserAgents[settings.userAgentIndex];
+      if (preset.value == 'custom' && settings.customUserAgent.isNotEmpty) {
+        return settings.customUserAgent;
+      }
+      return preset.name;
+    }
+    return '默认（移动端）';
   }
 
   @override
@@ -86,42 +90,24 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
 
           const Divider(),
 
-          // 用户代理
-          FutureBuilder(
-            future: InAppWebViewController.getDefaultUserAgent(),
-            builder: (context, snapshot) {
-              var defaultUserAgent = "";
-              if (snapshot.hasData) {
-                defaultUserAgent = snapshot.data as String;
-              }
-
-              return ListTile(
-                leading: const Icon(Icons.phone_android),
-                title: Text(l10n.defaultUserAgent),
-                subtitle: Text(
-                  defaultUserAgent,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: IconButton(
-                  icon: const Icon(Icons.copy),
-                  onPressed: () {
-                    Clipboard.setData(ClipboardData(text: defaultUserAgent));
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('已复制到剪贴板')),
-                    );
-                  },
+          // 用户代理选择
+          ListTile(
+            leading: const Icon(Icons.devices),
+            title: const Text('用户代理'),
+            subtitle: Text(
+              _getUserAgentDisplay(settings),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const UserAgentPage(),
                 ),
               );
             },
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.edit),
-            title: const Text('自定义用户代理'),
-            subtitle: const Text('设置自定义 User-Agent'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showUserAgentDialog(context),
           ),
 
           const Divider(),
@@ -146,39 +132,6 @@ class _AdvancedSettingsPageState extends State<AdvancedSettingsPage> {
             onChanged: (value) {
               // TODO: 实现缩放设置
             },
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showUserAgentDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('自定义用户代理'),
-        content: TextField(
-          controller: _userAgentController,
-          decoration: const InputDecoration(
-            hintText: '输入自定义 User-Agent',
-            border: OutlineInputBorder(),
-          ),
-          maxLines: 3,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(AppLocalizations.of(context).cancel),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              // TODO: 保存自定义 User-Agent
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('User-Agent 已保存')),
-              );
-            },
-            child: Text(AppLocalizations.of(context).save),
           ),
         ],
       ),

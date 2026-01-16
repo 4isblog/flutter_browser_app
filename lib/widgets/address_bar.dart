@@ -57,90 +57,128 @@ class _BrowserAddressBarState extends State<BrowserAddressBar> {
     final isSecure = url?.scheme == 'https';
     final showLockIcon = !widget.isHomePage && isSecure;
 
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 2,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // 地址输入框
-          Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                color: Theme.of(context).brightness == Brightness.dark
-                    ? Colors.grey[800]
-                    : Colors.grey[200],
-                borderRadius: BorderRadius.circular(24),
+    // 判断是否显示进度条
+    final showProgress = !widget.isHomePage && 
+                        webViewModel.progress > 0.0 && 
+                        webViewModel.progress < 1.0;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          height: 56,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Theme.of(context).scaffoldBackgroundColor,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 2,
+                offset: const Offset(0, 1),
               ),
-              child: Row(
-                children: [
-                  // 锁图标（在输入框内部左侧）
-                  if (showLockIcon)
-                    const Padding(
-                      padding: EdgeInsets.only(left: 12),
-                      child: Icon(
-                        Icons.lock,
-                        size: 16,
-                        color: Colors.green,
-                      ),
-                    ),
-                  
-                  // 输入框
-                  Expanded(
-                    child: TextField(
-                      controller: _controller,
-                      focusNode: _focusNode,
-                      decoration: InputDecoration(
-                        hintText: '搜索或输入网址',
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(
-                          horizontal: showLockIcon ? 8 : 16,
-                          vertical: 12,
-                        ),
-                        suffixIcon: _isEditing
-                            ? IconButton(
-                                icon: const Icon(Icons.clear, size: 20),
-                                onPressed: () {
-                                  _controller.clear();
-                                },
-                              )
-                            : null,
-                      ),
-                      style: const TextStyle(fontSize: 14),
-                      textInputAction: TextInputAction.go,
-                      keyboardType: TextInputType.url,
-                      onSubmitted: (value) {
-                        widget.onSubmitted(value);
-                        _focusNode.unfocus();
-                      },
-                      onTap: () {
-                        _controller.selection = TextSelection(
-                          baseOffset: 0,
-                          extentOffset: _controller.text.length,
-                        );
-                      },
-                    ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // 地址输入框
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.grey[800]
+                        : Colors.grey[200],
+                    borderRadius: BorderRadius.circular(24),
                   ),
-                ],
+                  child: Row(
+                    children: [
+                      // 锁图标（在输入框内部左侧）
+                      if (showLockIcon)
+                        const Padding(
+                          padding: EdgeInsets.only(left: 12),
+                          child: Icon(
+                            Icons.lock,
+                            size: 16,
+                            color: Colors.green,
+                          ),
+                        ),
+                      
+                      // 输入框
+                      Expanded(
+                        child: TextField(
+                          controller: _controller,
+                          focusNode: _focusNode,
+                          decoration: InputDecoration(
+                            hintText: '搜索或输入网址',
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: showLockIcon ? 8 : 16,
+                              vertical: 10,
+                            ),
+                            isDense: true,
+                            suffixIcon: _isEditing
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear, size: 20),
+                                    onPressed: () {
+                                      _controller.clear();
+                                    },
+                                    padding: const EdgeInsets.all(8),
+                                  )
+                                : null,
+                          ),
+                          style: const TextStyle(fontSize: 14),
+                          textInputAction: TextInputAction.go,
+                          keyboardType: TextInputType.url,
+                          onSubmitted: (value) {
+                            if (value.trim().isNotEmpty) {
+                              widget.onSubmitted(value);
+                            }
+                            _focusNode.unfocus();
+                            setState(() {
+                              _isEditing = false;
+                            });
+                          },
+                          onTap: () {
+                            // 如果是首页，点击时清空文本
+                            if (widget.isHomePage) {
+                              _controller.clear();
+                            } else {
+                              // 如果是网页，选中所有文本
+                              _controller.selection = TextSelection(
+                                baseOffset: 0,
+                                extentOffset: _controller.text.length,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
+              
+              const SizedBox(width: 8),
+              
+              // 右侧按钮：首页显示二维码扫描，网页显示刷新
+              _buildActionButton(webViewModel),
+            ],
           ),
-          
-          const SizedBox(width: 8),
-          
-          // 右侧按钮：首页显示二维码扫描，网页显示刷新
-          _buildActionButton(webViewModel),
-        ],
-      ),
+        ),
+        
+        // 进度条
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          height: showProgress ? 3 : 0,
+          child: showProgress
+              ? LinearProgressIndicator(
+                  value: webViewModel.progress,
+                  backgroundColor: Colors.transparent,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).primaryColor,
+                  ),
+                )
+              : null,
+        ),
+      ],
     );
   }
 
@@ -152,12 +190,7 @@ class _BrowserAddressBarState extends State<BrowserAddressBar> {
           Icons.qr_code_scanner,
           size: 22,
         ),
-        onPressed: widget.onQrScan ?? () {
-          // TODO: 实现二维码扫描功能
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('二维码扫描功能开发中...')),
-          );
-        },
+        onPressed: widget.onQrScan,
         padding: EdgeInsets.zero,
         constraints: const BoxConstraints(
           minWidth: 40,

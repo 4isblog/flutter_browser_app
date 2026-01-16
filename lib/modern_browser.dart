@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_browser/database/favorites_database.dart';
 import 'package:flutter_browser/models/browser_model.dart';
+import 'package:flutter_browser/models/favorite_model.dart';
+import 'package:flutter_browser/models/user_agent_model.dart';
 import 'package:flutter_browser/models/webview_model.dart';
 import 'package:flutter_browser/models/window_model.dart';
+import 'package:flutter_browser/pages/downloads_page.dart';
+import 'package:flutter_browser/pages/favorites_page.dart';
 import 'package:flutter_browser/pages/history_page.dart';
 import 'package:flutter_browser/pages/modern_settings_page.dart';
 import 'package:flutter_browser/pages/qr_scanner_page.dart';
+import 'package:flutter_browser/util.dart';
 import 'package:flutter_browser/webview_tab.dart';
 import 'package:flutter_browser/widgets/address_bar.dart';
 import 'package:flutter_browser/widgets/bottom_menu.dart';
@@ -81,20 +87,30 @@ class _ModernBrowserState extends State<ModernBrowser> {
 
   void _addNewTab({String? url, bool isIncognito = false}) {
     final windowModel = Provider.of<WindowModel>(context, listen: false);
+    final browserModel = Provider.of<BrowserModel>(context, listen: false);
+    final settings = browserModel.getSettings();
 
     // 创建新标签页
-    final settings = isIncognito
+    final webViewSettings = isIncognito
         ? InAppWebViewSettings(
             incognito: true,
             cacheEnabled: false,
             thirdPartyCookiesEnabled: false,
           )
-        : null;
+        : InAppWebViewSettings();
+    
+    // 应用 User-Agent 设置
+    if (Util.isIOS() || Util.isAndroid()) {
+      final userAgent = _getUserAgentFromSettings(settings);
+      if (userAgent.isNotEmpty) {
+        webViewSettings.userAgent = userAgent;
+      }
+    }
     
     final webViewModel = WebViewModel(
       url: url != null && url.isNotEmpty ? WebUri(url) : null,
       isIncognitoMode: isIncognito,
-      settings: settings,
+      settings: webViewSettings,
     );
     
     final webViewTab = WebViewTab(
@@ -112,20 +128,30 @@ class _ModernBrowserState extends State<ModernBrowser> {
   
   void _addHomeTab({bool isIncognito = false}) {
     final windowModel = Provider.of<WindowModel>(context, listen: false);
+    final browserModel = Provider.of<BrowserModel>(context, listen: false);
+    final settings = browserModel.getSettings();
     
     // 创建一个首页标签
-    final settings = isIncognito
+    final webViewSettings = isIncognito
         ? InAppWebViewSettings(
             incognito: true,
             cacheEnabled: false,
             thirdPartyCookiesEnabled: false,
           )
-        : null;
+        : InAppWebViewSettings();
+    
+    // 应用 User-Agent 设置
+    if (Util.isIOS() || Util.isAndroid()) {
+      final userAgent = _getUserAgentFromSettings(settings);
+      if (userAgent.isNotEmpty) {
+        webViewSettings.userAgent = userAgent;
+      }
+    }
     
     final webViewModel = WebViewModel(
       url: null,
       isIncognitoMode: isIncognito,
-      settings: settings,
+      settings: webViewSettings,
     );
     
     final webViewTab = WebViewTab(
@@ -146,6 +172,11 @@ class _ModernBrowserState extends State<ModernBrowser> {
     final settings = browserModel.getSettings();
 
     String url = input.trim();
+
+    // 处理 bilibili:// scheme，转换为 https://
+    if (url.startsWith('bilibili://')) {
+      url = url.replaceFirst('bilibili://', 'https://m.bilibili.com/');
+    }
 
     // 判断是搜索还是 URL
     if (!url.contains('.') || !url.contains('://')) {
@@ -198,6 +229,65 @@ class _ModernBrowserState extends State<ModernBrowser> {
     // 如果扫描到内容，处理结果
     if (result != null && result.isNotEmpty) {
       _handleUrlSubmit(result);
+    }
+  }
+
+  Future<void> _openFavorites() async {
+    // 打开收藏页面
+    final result = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FavoritesPage(),
+      ),
+    );
+
+    // 如果选择了收藏，打开该URL
+    if (result != null && result.isNotEmpty) {
+      _handleUrlSubmit(result);
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    final windowModel = Provider.of<WindowModel>(context, listen: false);
+    final currentTab = windowModel.getCurrentTab();
+    
+    if (currentTab == null) return;
+    
+    final url = currentTab.webViewModel.url?.toString();
+    final title = currentTab.webViewModel.title;
+    
+    if (url == null || url.isEmpty || url == 'about:blank') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('无法收藏此页面')),
+      );
+      return;
+    }
+
+    // 检查是否已收藏
+    final isFavorite = await FavoritesDatabase.instance.isFavorite(url);
+    
+    if (isFavorite) {
+      // 取消收藏
+      await FavoritesDatabase.instance.deleteFavorite(url);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已从收藏中移除')),
+        );
+      }
+    } else {
+      // 添加收藏
+      final favorite = FavoriteModel(
+        url: currentTab.webViewModel.url,
+        title: title ?? url,
+        favicon: currentTab.webViewModel.favicon,
+      );
+      
+      await FavoritesDatabase.instance.addFavorite(favorite);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('已添加到收藏')),
+        );
+      }
     }
   }
 
@@ -390,9 +480,6 @@ class _ModernBrowserState extends State<ModernBrowser> {
       // 否则显示"新标签页"或"无痕标签页"
       title = isIncognito ? '无痕标签页' : '新标签页';
     }
-
-    // 获取网站图标
-    final favicon = tab.webViewModel.favicon;
     
     return Container(
       decoration: BoxDecoration(
@@ -438,7 +525,7 @@ class _ModernBrowserState extends State<ModernBrowser> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: Row(
               children: [
-                // 左侧图标
+                // 左侧图标 - 统一使用地球图标或无痕图标
                 Container(
                   width: 32,
                   height: 32,
@@ -450,25 +537,13 @@ class _ModernBrowserState extends State<ModernBrowser> {
                             : Colors.grey[100]),
                     shape: BoxShape.circle,
                   ),
-                  child: isIncognito
-                      ? const Icon(
-                          Icons.privacy_tip_outlined,
-                          size: 18,
-                          color: Colors.deepPurple,
-                        )
-                      : (favicon != null
-                          ? ClipOval(
-                              child: Image.network(
-                                favicon.url.toString(),
-                                width: 32,
-                                height: 32,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return _buildDefaultTabIcon(context, url);
-                                },
-                              ),
-                            )
-                          : _buildDefaultTabIcon(context, url)),
+                  child: Icon(
+                    isIncognito ? Icons.privacy_tip_outlined : Icons.language,
+                    size: 18,
+                    color: isIncognito
+                        ? Colors.deepPurple
+                        : Theme.of(context).iconTheme.color?.withValues(alpha: 0.6),
+                  ),
                 ),
                 
                 const SizedBox(width: 12),
@@ -523,22 +598,6 @@ class _ModernBrowserState extends State<ModernBrowser> {
     );
   }
 
-  Widget _buildDefaultTabIcon(BuildContext context, String url) {
-    IconData iconData;
-    
-    if (url.isEmpty || url == 'about:blank') {
-      iconData = Icons.home_outlined;
-    } else {
-      iconData = Icons.language;
-    }
-    
-    return Icon(
-      iconData,
-      size: 18,
-      color: Theme.of(context).iconTheme.color?.withValues(alpha: 0.6),
-    );
-  }
-
   void _showBottomMenu() {
     final windowModel = Provider.of<WindowModel>(context, listen: false);
     final currentTab = windowModel.getCurrentTab();
@@ -557,12 +616,13 @@ class _ModernBrowserState extends State<ModernBrowser> {
           Navigator.pop(context);
           _addHomeTab(isIncognito: true);
         },
+        onAddToFavorites: () {
+          Navigator.pop(context);
+          _toggleFavorite();
+        },
         onFavorites: () {
           Navigator.pop(context);
-          // TODO: 打开收藏夹
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('收藏夹功能开发中...')),
-          );
+          _openFavorites();
         },
         onHistory: () {
           Navigator.pop(context);
@@ -570,9 +630,11 @@ class _ModernBrowserState extends State<ModernBrowser> {
         },
         onDownloads: () {
           Navigator.pop(context);
-          // TODO: 打开下载列表
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('下载功能开发中...')),
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const DownloadsPage(),
+            ),
           );
         },
         onSettings: () {
@@ -591,24 +653,6 @@ class _ModernBrowserState extends State<ModernBrowser> {
             await Share.share(url);
           }
         },
-        onFindOnPage: () {
-          Navigator.pop(context);
-          // TODO: 实现页面查找
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('页面查找功能开发中...')),
-          );
-        },
-        onDesktopMode: () {
-          if (webViewModel != null) {
-            webViewModel.isDesktopMode = !webViewModel.isDesktopMode;
-            webViewModel.webViewController?.setSettings(
-              settings: webViewModel.settings ?? InAppWebViewSettings(),
-            );
-            windowModel.saveInfo();
-          }
-          Navigator.pop(context);
-        },
-        isDesktopMode: webViewModel?.isDesktopMode ?? false,
       ),
     );
   }
@@ -759,5 +803,17 @@ class _ModernBrowserState extends State<ModernBrowser> {
         }
       }).toList(),
     );
+  }
+
+  String _getUserAgentFromSettings(BrowserSettings settings) {
+    if (settings.userAgentIndex >= 0 && settings.userAgentIndex < PresetUserAgents.length) {
+      final preset = PresetUserAgents[settings.userAgentIndex];
+      if (preset.value == 'custom') {
+        return settings.customUserAgent;
+      }
+      return preset.value;
+    }
+    // 默认返回 Chrome 移动端
+    return PresetUserAgents[1].value;
   }
 }

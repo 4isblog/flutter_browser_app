@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_browser/l10n/app_localizations.dart';
 import 'package:flutter_browser/models/browser_model.dart';
 import 'package:flutter_browser/models/locale_model.dart';
-import 'package:flutter_browser/models/search_engine_model.dart';
+import 'package:flutter_browser/pages/settings/search_engine_page.dart';
 import 'package:provider/provider.dart';
 
 class GeneralSettingsPage extends StatefulWidget {
@@ -62,13 +62,20 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
             title: Text(l10n.searchEngine),
             subtitle: Text(settings.searchEngine.name),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showSearchEngineDialog(context, browserModel, settings),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SearchEnginePage(),
+                ),
+              );
+            },
           ),
 
           // 主页设置
           SwitchListTile(
             secondary: const Icon(Icons.home),
-            title: Text(l10n.homepage),
+            title: const Text('起始页'),
             subtitle: Text(settings.homePageEnabled
                 ? (settings.customUrlHomePage.isEmpty
                     ? l10n.on
@@ -90,7 +97,7 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
                 controller: _homePageController
                   ..text = settings.customUrlHomePage,
                 decoration: InputDecoration(
-                  labelText: '自定义主页 URL',
+                  labelText: '自定义起始页 URL',
                   hintText: 'https://www.example.com',
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
@@ -223,47 +230,6 @@ class _GeneralSettingsPageState extends State<GeneralSettingsPage> {
               },
             ),
           ],
-        ),
-      ),
-    );
-  }
-
-  void _showSearchEngineDialog(
-    BuildContext context,
-    BrowserModel browserModel,
-    dynamic settings,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppLocalizations.of(context).searchEngine),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: SearchEngines.map((engine) {
-            return RadioListTile<SearchEngineModel>(
-              title: Row(
-                children: [
-                  if (engine.assetIcon != null)
-                    Image.asset(
-                      engine.assetIcon!,
-                      width: 20,
-                      height: 20,
-                    ),
-                  const SizedBox(width: 12),
-                  Text(engine.name),
-                ],
-              ),
-              value: engine,
-              groupValue: settings.searchEngine,
-              onChanged: (value) {
-                setState(() {
-                  settings.searchEngine = value!;
-                  browserModel.updateSettings(settings);
-                });
-                Navigator.pop(context);
-              },
-            );
-          }).toList(),
         ),
       ),
     );

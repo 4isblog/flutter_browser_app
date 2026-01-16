@@ -44,6 +44,7 @@ dependencies:
 
   flutter_inappwebview: ^6.1.5
   flutter_downloader: ^1.11.8
+  open_file: ^3.3.2
   path_provider: ^2.1.4
   permission_handler: ^11.3.1
   provider: ^6.1.2

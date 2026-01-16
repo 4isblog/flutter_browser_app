@@ -13,6 +13,7 @@
         android:label="Flutter Browser"
         android:name="${applicationName}"
         android:usesCleartextTraffic="true"
+        android:hardwareAccelerated="true"
         android:icon="@mipmap/launcher_icon">
         <activity
             android:name=".MainActivity"
