@@ -11,6 +11,7 @@ import 'package:flutter_browser/pages/history_page.dart';
 import 'package:flutter_browser/pages/modern_settings_page.dart';
 import 'package:flutter_browser/pages/qr_scanner_page.dart';
 import 'package:flutter_browser/util.dart';
+import 'package:flutter_browser/utils/version_checker.dart';
 import 'package:flutter_browser/webview_tab.dart';
 import 'package:flutter_browser/widgets/address_bar.dart';
 import 'package:flutter_browser/widgets/bottom_menu.dart';
@@ -43,6 +44,9 @@ class _ModernBrowserState extends State<ModernBrowser> {
     // 恢复浏览器设置
     await browserModel.restore();
     final settings = browserModel.getSettings();
+
+    // 检查版本更新（后台静默检查）
+    VersionChecker.checkForUpdate(context, showNoUpdateDialog: false);
 
     // 根据设置决定启动行为
     switch (settings.startupBehavior) {
@@ -699,61 +703,68 @@ class _ModernBrowserState extends State<ModernBrowser> {
       },
       child: Scaffold(
         body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            // 地址栏
-            BrowserAddressBar(
-              onSubmitted: _handleUrlSubmit,
-              isHomePage: _showHomePage,
-              onQrScan: _openQRScanner,
-            ),
+          bottom: false,
+          child: Column(
+            children: [
+              // 地址栏
+              BrowserAddressBar(
+                onSubmitted: _handleUrlSubmit,
+                isHomePage: _showHomePage,
+                onQrScan: _openQRScanner,
+              ),
 
-            // 主内容区域
-            Expanded(
-              child: _buildContent(windowModel),
-            ),
+              // 主内容区域
+              Expanded(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTapDown: (_) {
+                    // 点击内容区域取消所有焦点
+                    FocusScope.of(context).unfocus();
+                  },
+                  child: _buildContent(windowModel),
+                ),
+              ),
 
-            // 底部导航栏
-            BrowserBottomNavigationBar(
-              isHomePage: _showHomePage,
-              onHomePressed: () async {
-                final windowModel = Provider.of<WindowModel>(context, listen: false);
-                
-                // 如果有标签页，将当前标签重置为首页状态
-                if (windowModel.webViewTabs.isNotEmpty) {
-                  final currentTab = windowModel.getCurrentTab();
-                  if (currentTab != null) {
-                    // 清空WebView内容和历史记录
-                    final controller = currentTab.webViewModel.webViewController;
-                    if (controller != null) {
-                      // 加载空白页面
-                      await controller.loadUrl(urlRequest: URLRequest(url: WebUri('about:blank')));
-                      // 清空历史记录
-                      await controller.clearHistory();
+              // 底部导航栏
+              BrowserBottomNavigationBar(
+                isHomePage: _showHomePage,
+                onHomePressed: () async {
+                  final windowModel = Provider.of<WindowModel>(context, listen: false);
+                  
+                  // 如果有标签页，将当前标签重置为首页状态
+                  if (windowModel.webViewTabs.isNotEmpty) {
+                    final currentTab = windowModel.getCurrentTab();
+                    if (currentTab != null) {
+                      // 清空WebView内容和历史记录
+                      final controller = currentTab.webViewModel.webViewController;
+                      if (controller != null) {
+                        // 加载空白页面
+                        await controller.loadUrl(urlRequest: URLRequest(url: WebUri('about:blank')));
+                        // 清空历史记录
+                        await controller.clearHistory();
+                      }
+                      
+                      // 清空当前标签的URL和标题
+                      currentTab.webViewModel.url = null;
+                      currentTab.webViewModel.title = null;
+                      currentTab.webViewModel.favicon = null;
                     }
                     
-                    // 清空当前标签的URL和标题
-                    currentTab.webViewModel.url = null;
-                    currentTab.webViewModel.title = null;
-                    currentTab.webViewModel.favicon = null;
+                    setState(() {
+                      _showHomePage = true;
+                    });
+                  } else {
+                    // 如果没有标签页，创建一个首页标签
+                    _addHomeTab();
                   }
-                  
-                  setState(() {
-                    _showHomePage = true;
-                  });
-                } else {
-                  // 如果没有标签页，创建一个首页标签
-                  _addHomeTab();
-                }
-              },
-              onTabsPressed: _showTabsView,
-              onMenuPressed: _showBottomMenu,
-            ),
-          ],
+                },
+                onTabsPressed: _showTabsView,
+                onMenuPressed: _showBottomMenu,
+              ),
+            ],
+          ),
         ),
       ),
-    ),
     );
   }
 
@@ -766,21 +777,14 @@ class _ModernBrowserState extends State<ModernBrowser> {
       );
     }
 
-    // 如果有标签页但要求显示首页，在首页上方叠加显示
+    // 如果有标签页但要求显示首页，完全覆盖显示首页
     if (_showHomePage && windowModel.webViewTabs.isNotEmpty) {
       final currentTab = windowModel.getCurrentTab();
       final isIncognito = currentTab?.webViewModel.isIncognitoMode ?? false;
       
-      return Stack(
-        children: [
-          // 底层显示当前标签页
-          _buildTabContent(windowModel),
-          // 上层显示首页
-          BrowserHomePage(
-            onUrlSubmit: _handleUrlSubmit,
-            isIncognito: isIncognito,
-          ),
-        ],
+      return BrowserHomePage(
+        onUrlSubmit: _handleUrlSubmit,
+        isIncognito: isIncognito,
       );
     }
 

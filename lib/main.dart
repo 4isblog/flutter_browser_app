@@ -23,6 +23,8 @@ import 'l10n/app_localizations_delegate.dart';
 
 import 'browser.dart';
 import 'modern_browser.dart';
+import 'pages/splash_screen.dart';
+import 'utils/version_checker.dart';
 
 // ignore: non_constant_identifier_names
 late final String WEB_ARCHIVE_DIR;
@@ -238,8 +240,9 @@ class _FlutterBrowserAppState extends State<FlutterBrowserApp>
             Locale('en', ''),
             Locale('zh', ''),
           ],
-          initialRoute: '/',
+          initialRoute: '/splash',
           routes: {
+            '/splash': (context) => const SplashScreen(), // 启动图页面
             '/': (context) => const ModernBrowser(), // 使用新的现代化浏览器
             '/old': (context) => const Browser(), // 保留旧版本以便对比
           },

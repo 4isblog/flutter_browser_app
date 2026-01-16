@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_browser/l10n/app_localizations.dart';
+import 'package:flutter_browser/utils/version_checker.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -84,12 +85,35 @@ class AboutPage extends StatelessWidget {
 
           const Divider(height: 32),
 
+          // 检查更新
+          ListTile(
+            leading: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.green.withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.system_update,
+                color: Colors.green,
+              ),
+            ),
+            title: const Text('检查更新'),
+            subtitle: const Text('查看是否有新版本可用'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              VersionChecker.checkForUpdate(context, showNoUpdateDialog: true);
+            },
+          ),
+
+          const Divider(height: 32),
+
           // 项目链接
           ListTile(
             leading: Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: Theme.of(context).primaryColor.withOpacity(0.1),
+                color: Theme.of(context).primaryColor.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
