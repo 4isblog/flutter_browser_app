@@ -20,6 +20,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter_browser/l10n/app_localizations.dart';
 
 import '../animated_flutter_browser_logo.dart';
 import '../custom_popup_dialog.dart';
@@ -74,6 +75,46 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
             (await webViewController?.getUrl())?.toString() ?? "";
       }
     });
+  }
+
+  String _getLocalizedMenuText(BuildContext context, String choice) {
+    final l10n = AppLocalizations.of(context);
+    switch (choice) {
+      case PopupMenuActions.NEW_TAB:
+      case TabPopupMenuActions.NEW_TAB:
+        return l10n.newTab;
+      case PopupMenuActions.NEW_INCOGNITO_TAB:
+      case TabPopupMenuActions.NEW_INCOGNITO_TAB:
+        return l10n.incognitoMode;
+      case PopupMenuActions.FAVORITES:
+        return l10n.favorites;
+      case PopupMenuActions.HISTORY:
+        return l10n.history;
+      case PopupMenuActions.WEB_ARCHIVES:
+        return l10n.webArchives;
+      case PopupMenuActions.SHARE:
+        return l10n.share;
+      case PopupMenuActions.FIND_ON_PAGE:
+        return l10n.findOnPage;
+      case PopupMenuActions.DESKTOP_MODE:
+        return l10n.desktopMode;
+      case PopupMenuActions.SETTINGS:
+        return l10n.settings;
+      case PopupMenuActions.DEVELOPERS:
+        return l10n.developerTools;
+      case PopupMenuActions.OPEN_NEW_WINDOW:
+        return l10n.openNewWindow;
+      case PopupMenuActions.SAVE_WINDOW:
+        return l10n.saveWindow;
+      case PopupMenuActions.SAVED_WINDOWS:
+        return l10n.savedWindows;
+      case PopupMenuActions.INAPPWEBVIEW_PROJECT:
+        return l10n.flutterInAppWebViewProject;
+      case TabPopupMenuActions.CLOSE_TABS:
+        return l10n.closeTabs;
+      default:
+        return choice;
+    }
   }
 
   @override
@@ -642,7 +683,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.open_in_new,
                         )
@@ -655,7 +696,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         Selector<WindowModel, bool>(
                           selector: (context, windowModel) =>
                               windowModel.shouldSave,
@@ -677,7 +718,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.window,
                         )
@@ -690,7 +731,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.add,
                           color: Colors.black,
@@ -704,7 +745,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           MaterialCommunityIcons.incognito,
                           color: Colors.black,
@@ -718,7 +759,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.star,
                           color: Colors.yellow,
@@ -732,7 +773,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.offline_pin,
                           color: Colors.blue,
@@ -746,7 +787,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         Selector<WebViewModel, bool>(
                           selector: (context, webViewModel) =>
                               webViewModel.isDesktopMode,
@@ -768,7 +809,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.history,
                           color: Colors.black,
@@ -782,7 +823,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Ionicons.logo_whatsapp,
                           color: Colors.green,
@@ -796,7 +837,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.settings,
                           color: Colors.grey,
@@ -810,7 +851,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.developer_mode,
                           color: Colors.black,
@@ -824,7 +865,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         const Icon(
                           Icons.search,
                           color: Colors.black,
@@ -838,7 +879,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
                   child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(choice),
+                        Text(_getLocalizedMenuText(context, choice)),
                         Container(
                           padding: const EdgeInsets.only(right: 6),
                           child: const AnimatedFlutterBrowserLogo(
@@ -850,7 +891,7 @@ class _WebViewTabAppBarState extends State<WebViewTabAppBar>
               default:
                 return CustomPopupMenuItem<String>(
                   value: choice,
-                  child: Text(choice),
+                  child: Text(_getLocalizedMenuText(context, choice)),
                 );
             }
           }).toList());

@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_browser/database/history_database.dart';
 import 'package:flutter_browser/main.dart';
+import 'package:flutter_browser/models/browser_history.dart';
 import 'package:flutter_browser/models/webview_model.dart';
 import 'package:flutter_browser/util.dart';
 import 'package:flutter_downloader/flutter_downloader.dart';
@@ -96,6 +98,40 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
       _webViewController?.pause();
     }
     pauseTimers();
+  }
+
+  Future<void> _saveToHistory(WebUri? url, String? title, Favicon? favicon) async {
+    // 不保存无痕模式的历史记录
+    if (widget.webViewModel.isIncognitoMode) {
+      return;
+    }
+
+    // 不保存空白页和本地页面
+    if (url == null) return;
+    
+    final urlString = url.toString();
+    if (urlString.isEmpty || 
+        urlString == 'about:blank' || 
+        urlString.startsWith('about:') ||
+        urlString.startsWith('chrome:') ||
+        urlString.startsWith('file:')) {
+      return;
+    }
+
+    final history = BrowserHistory(
+      url: urlString,
+      title: (title != null && title.isNotEmpty) ? title : urlString,
+      favicon: favicon?.url.toString(),
+      visitTime: DateTime.now(),
+    );
+
+    try {
+      await HistoryDatabase.instance.addHistory(history);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving history: $e');
+      }
+    }
   }
 
   void resumeAll() {
@@ -283,6 +319,9 @@ class _WebViewTabState extends State<WebViewTab> with WidgetsBindingObserver {
               );
           widget.webViewModel.screenshot = await screenshotData;
         }
+
+        // 保存历史记录
+        _saveToHistory(url, widget.webViewModel.title, widget.webViewModel.favicon);
 
         windowModel.notifyWebViewTabUpdated();
       },

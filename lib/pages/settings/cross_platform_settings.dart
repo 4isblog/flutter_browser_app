@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_browser/models/browser_model.dart';
+import 'package:flutter_browser/models/locale_model.dart';
 import 'package:flutter_browser/models/search_engine_model.dart';
 import 'package:flutter_browser/models/webview_model.dart';
 import 'package:flutter_browser/util.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_browser/l10n/app_localizations.dart';
 
 import '../../models/window_model.dart';
 import '../../project_info_popup.dart';
@@ -47,18 +49,54 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
   List<Widget> _buildBaseSettings() {
     final browserModel = Provider.of<BrowserModel>(context, listen: true);
     final windowModel = Provider.of<WindowModel>(context, listen: true);
+    final localeModel = Provider.of<LocaleModel>(context, listen: true);
     final settings = browserModel.getSettings();
+    final l10n = AppLocalizations.of(context);
 
     var widgets = <Widget>[
-      const ListTile(
-        title: Text("General Settings"),
+      ListTile(
+        title: Text(l10n.generalSettings),
         enabled: false,
       ),
       ListTile(
-        title: const Text("Search Engine"),
+        title: Text(l10n.language),
+        subtitle: Text(_getLanguageName(localeModel.locale, l10n)),
+        trailing: DropdownButton<String>(
+          hint: Text(l10n.language),
+          onChanged: (value) {
+            if (value != null) {
+              Locale newLocale;
+              switch (value) {
+                case 'zh':
+                  newLocale = const Locale('zh', '');
+                  break;
+                case 'en':
+                  newLocale = const Locale('en', '');
+                  break;
+                default:
+                  newLocale = const Locale('zh', '');
+              }
+              localeModel.setLocale(newLocale);
+            }
+          },
+          value: localeModel.locale.languageCode,
+          items: [
+            DropdownMenuItem(
+              value: 'zh',
+              child: Text(l10n.chinese),
+            ),
+            DropdownMenuItem(
+              value: 'en',
+              child: Text(l10n.english),
+            ),
+          ],
+        ),
+      ),
+      ListTile(
+        title: Text(l10n.searchEngine),
         subtitle: Text(settings.searchEngine.name),
         trailing: DropdownButton<SearchEngineModel>(
-          hint: const Text("Search Engine"),
+          hint: Text(l10n.searchEngine),
           onChanged: (value) {
             setState(() {
               if (value != null) {
@@ -77,12 +115,12 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
         ),
       ),
       ListTile(
-        title: const Text("Home page"),
+        title: Text(l10n.homepage),
         subtitle: Text(settings.homePageEnabled
             ? (settings.customUrlHomePage.isEmpty
-                ? "ON"
+                ? l10n.on
                 : settings.customUrlHomePage)
-            : "OFF"),
+            : l10n.off),
         onTap: () {
           _customHomePageController.text = settings.customUrlHomePage;
 
@@ -97,7 +135,7 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
                     StatefulBuilder(
                       builder: (context, setState) {
                         return SwitchListTile(
-                          title: Text(settings.homePageEnabled ? "ON" : "OFF"),
+                          title: Text(settings.homePageEnabled ? l10n.on : l10n.off),
                           value: settings.homePageEnabled,
                           onChanged: (value) {
                             setState(() {
@@ -124,8 +162,8 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
                                   });
                                 },
                                 keyboardType: TextInputType.url,
-                                decoration: const InputDecoration(
-                                    hintText: 'Custom URL Home Page'),
+                                decoration: InputDecoration(
+                                    hintText: l10n.homepage),
                                 controller: _customHomePageController,
                               ),
                             )
@@ -149,7 +187,7 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
           }
 
           return ListTile(
-            title: const Text("Default User Agent"),
+            title: Text(l10n.defaultUserAgent),
             subtitle: Text(deafultUserAgent),
             onLongPress: () {
               Clipboard.setData(ClipboardData(text: deafultUserAgent));
@@ -158,9 +196,8 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
         },
       ),
       SwitchListTile(
-        title: const Text("Debugging Enabled"),
-        subtitle: const Text(
-            "Enables debugging of web contents loaded into any WebViews of this application. On iOS < 16.4, the debugging mode is always enabled."),
+        title: Text(l10n.debuggingEnabled),
+        subtitle: Text(l10n.debuggingDescription),
         value: settings.debuggingEnabled,
         onChanged: (value) {
           setState(() {
@@ -187,10 +224,10 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
           if (snapshot.hasData) {
             PackageInfo packageInfo = snapshot.data as PackageInfo;
             packageDescription =
-                "Package Name: ${packageInfo.packageName}\nVersion: ${packageInfo.version}\nBuild Number: ${packageInfo.buildNumber}";
+                "${l10n.packageName}: ${packageInfo.packageName}\n${l10n.version}: ${packageInfo.version}\n${l10n.buildNumber}: ${packageInfo.buildNumber}";
           }
           return ListTile(
-            title: const Text("Flutter Browser Package Info"),
+            title: Text(l10n.flutterBrowserPackageInfo),
             subtitle: Text(packageDescription),
             onLongPress: () {
               Clipboard.setData(ClipboardData(text: packageDescription));
@@ -206,7 +243,7 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
           child: const CircleAvatar(
               backgroundImage: AssetImage("assets/icon/icon.png")),
         ),
-        title: const Text("Flutter InAppWebView Project"),
+        title: Text(l10n.flutterInAppWebViewProject),
         subtitle: const Text(
             "https://github.com/pichillilorenzo/flutter_inappwebview"),
         trailing: const Icon(Icons.arrow_forward),
@@ -246,7 +283,7 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
                   "${packageInfo.packageName ?? ""} - ${packageInfo.versionName ?? ""}";
             }
             return ListTile(
-              title: const Text("WebView Package Info"),
+              title: Text(l10n.webViewPackageInfo),
               subtitle: Text(packageDescription),
               onLongPress: () {
                 Clipboard.setData(ClipboardData(text: packageDescription));
@@ -258,6 +295,17 @@ class _CrossPlatformSettingsState extends State<CrossPlatformSettings> {
     }
 
     return widgets;
+  }
+
+  String _getLanguageName(Locale locale, AppLocalizations l10n) {
+    switch (locale.languageCode) {
+      case 'zh':
+        return l10n.chinese;
+      case 'en':
+        return l10n.english;
+      default:
+        return l10n.chinese;
+    }
   }
 
   List<Widget> _buildWebViewTabSettings() {

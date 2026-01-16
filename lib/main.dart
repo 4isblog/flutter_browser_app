@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_browser/models/browser_model.dart';
+import 'package:flutter_browser/models/locale_model.dart';
 import 'package:flutter_browser/models/webview_model.dart';
 import 'package:flutter_browser/models/window_model.dart';
 import 'package:flutter_browser/util.dart';
@@ -17,8 +18,11 @@ import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:window_manager_plus/window_manager_plus.dart';
 import 'package:path/path.dart' as p;
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations_delegate.dart';
 
 import 'browser.dart';
+import 'modern_browser.dart';
 
 // ignore: non_constant_identifier_names
 late final String WEB_ARCHIVE_DIR;
@@ -51,7 +55,14 @@ void main(List<String> args) async {
   if (Util.isDesktop()) {
     windowId = args.isNotEmpty ? int.tryParse(args[0]) ?? 0 : 0;
     windowModelId = args.length > 1 ? args[1] : null;
-    await WindowManagerPlus.ensureInitialized(windowId);
+    try {
+      await WindowManagerPlus.ensureInitialized(windowId);
+    } catch (e) {
+      // Ignore error on unsupported platforms
+      if (kDebugMode) {
+        print('WindowManagerPlus initialization failed: $e');
+      }
+    }
   }
 
   final appDocumentsDir = await getApplicationDocumentsDirectory();
@@ -121,6 +132,9 @@ void main(List<String> args) async {
     MultiProvider(
       providers: [
         ChangeNotifierProvider(
+          create: (context) => LocaleModel(),
+        ),
+        ChangeNotifierProvider(
           create: (context) => BrowserModel(),
         ),
         ChangeNotifierProvider(
@@ -128,8 +142,12 @@ void main(List<String> args) async {
         ),
         ChangeNotifierProxyProvider<WebViewModel, WindowModel>(
           update: (context, webViewModel, windowModel) {
-            windowModel!.setCurrentWebViewModel(webViewModel);
-            return windowModel;
+            if (windowModel != null) {
+              windowModel.setCurrentWebViewModel(webViewModel);
+              return windowModel;
+            }
+            return WindowModel(id: null)
+              ..setCurrentWebViewModel(webViewModel);
           },
           create: (BuildContext context) =>
               WindowModel(id: null),
@@ -156,10 +174,12 @@ class _FlutterBrowserAppState extends State<FlutterBrowserApp>
   @override
   void initState() {
     super.initState();
-    WindowManagerPlus.current.addListener(this);
+    if (Util.isDesktop()) {
+      WindowManagerPlus.current.addListener(this);
+    }
 
     // https://github.com/pichillilorenzo/window_manager_plus/issues/5
-    if (WindowManagerPlus.current.id > 0 && Platform.isMacOS) {
+    if (Util.isDesktop() && WindowManagerPlus.current.id > 0 && Platform.isMacOS) {
       _appLifecycleListener = AppLifecycleListener(
         onStateChange: _handleStateChange,
       );
@@ -168,7 +188,7 @@ class _FlutterBrowserAppState extends State<FlutterBrowserApp>
 
   void _handleStateChange(AppLifecycleState state) {
     // https://github.com/pichillilorenzo/window_manager_plus/issues/5
-    if (WindowManagerPlus.current.id > 0 && Platform.isMacOS && state == AppLifecycleState.hidden) {
+    if (Util.isDesktop() && WindowManagerPlus.current.id > 0 && Platform.isMacOS && state == AppLifecycleState.hidden) {
       SchedulerBinding.instance.handleAppLifecycleStateChanged(
           AppLifecycleState.inactive);
     }
@@ -176,43 +196,75 @@ class _FlutterBrowserAppState extends State<FlutterBrowserApp>
 
   @override
   void dispose() {
-    WindowManagerPlus.current.removeListener(this);
+    if (Util.isDesktop()) {
+      WindowManagerPlus.current.removeListener(this);
+    }
     _appLifecycleListener?.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final materialApp = MaterialApp(
-      title: 'Flutter Browser',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-      ),
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const Browser(),
+    return Consumer<LocaleModel>(
+      builder: (context, localeModel, child) {
+        final materialApp = MaterialApp(
+          title: 'Flutter Browser',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blue,
+              brightness: Brightness.light,
+            ),
+          ),
+          darkTheme: ThemeData(
+            visualDensity: VisualDensity.adaptivePlatformDensity,
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: Colors.blue,
+              brightness: Brightness.dark,
+            ),
+          ),
+          themeMode: ThemeMode.system,
+          locale: localeModel.locale,
+          localizationsDelegates: const [
+            AppLocalizationsDelegate(),
+            GlobalMaterialLocalizations.delegate,
+            GlobalWidgetsLocalizations.delegate,
+            GlobalCupertinoLocalizations.delegate,
+          ],
+          supportedLocales: const [
+            Locale('en', ''),
+            Locale('zh', ''),
+          ],
+          initialRoute: '/',
+          routes: {
+            '/': (context) => const ModernBrowser(), // 使用新的现代化浏览器
+            '/old': (context) => const Browser(), // 保留旧版本以便对比
+          },
+        );
+
+        return Util.isMobile()
+            ? materialApp
+            : ContextMenuOverlay(
+                child: materialApp,
+              );
       },
     );
-
-    return Util.isMobile()
-        ? materialApp
-        : ContextMenuOverlay(
-            child: materialApp,
-          );
   }
 
   @override
   void onWindowFocus([int? windowId]) {
     setState(() {});
-    if (!Util.isWindows()) {
+    if (Util.isDesktop() && !Util.isWindows()) {
       WindowManagerPlus.current.setMovable(false);
     }
   }
 
   @override
   void onWindowBlur([int? windowId]) {
-    if (!Util.isWindows()) {
+    if (Util.isDesktop() && !Util.isWindows()) {
       WindowManagerPlus.current.setMovable(true);
     }
   }
